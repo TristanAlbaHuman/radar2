@@ -43,6 +43,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ── ONGLETS NATIFS ────────────────
 tab1, tab2, tab3 = st.tabs(["📊 Funnels de Conversion", "🗺️ Analyse par Agence", "📋 Données Brutes"])
 
 with tab1:

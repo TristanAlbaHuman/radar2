@@ -138,7 +138,7 @@ def render_card(row, source, color, icon, action, key_prefix):
             st.session_state["fiche_id"], st.session_state["fiche_source"] = row_id, src_key
             st.switch_page("pages/2_Fiche_Prospect.py")
 
-# ── ONGLETS ───────────────────────────────────────────────────────
+# ── ONGLETS NATIFS ────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs([
     f"🔴 Mandats Urgents ({len(l1)})", 
     f"🟠 Évals Sans Suivi ({len(l2)})", 

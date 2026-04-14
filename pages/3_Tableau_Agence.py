@@ -43,6 +43,7 @@ n_urgents = int(df_m[(df_m["classement"]=="exclusif") & ((df_m["sans_suivi"]==Tr
 if n_urgents > 0:
     st.markdown(f'<div class="banner red"><div class="banner-icon">🔴</div><div class="banner-text"><b>{n_urgents} mandats exclusifs à relancer d\'urgence</b> — sans suivi > 60j</div></div>', unsafe_allow_html=True)
 
+# ── ONGLETS NATIFS ────────────────
 tab1, tab2, tab3 = st.tabs(["📊 Vue d'ensemble & KPIs", "📈 Analyse & Marché", "🚨 Actions Prioritaires"])
 
 with tab1:

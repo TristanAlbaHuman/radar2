@@ -32,6 +32,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ── ONGLETS NATIFS ────────────────
 tab1, tab2 = st.tabs(["📈 Conversion & Mandats", "🎯 Impact DPE & Actions"])
 
 with tab1:
@@ -50,7 +51,7 @@ with tab1:
             fig_cl.update_layout(**PL, height=280); st.plotly_chart(fig_cl, use_container_width=True)
 
 with tab2:
-    df_det = st.session_state.get("match_v2_df", pd.DataFrame())
+    df_det = st.session_state.get("match_crm_df", pd.DataFrame()) # On utilise bien le nouveau match global
     if not df_det.empty:
         st.markdown(f"""
         <div class="krow">
