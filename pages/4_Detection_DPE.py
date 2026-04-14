@@ -172,7 +172,9 @@ with tab3:
             st.subheader(f"✅ Biens en portefeuille (CRM) matchés avec un DPE ({len(df_mm)} trouvés)")
             if not df_mm.empty: 
                 cols_affich = ["source_crm", "nom_principal", "agence", "adresse_bien", "match_score", "dpe_etiquette", "dpe_surface", "dpe_date"]
-                st.dataframe(df_mm[cols_affich].head(500), use_container_width=True)
+                # S'assurer que les colonnes existent avant l'affichage
+                cols_affich_exist = [c for c in cols_affich if c in df_mm.columns]
+                st.dataframe(df_mm[cols_affich_exist].head(500), use_container_width=True)
             else:
                 st.info("Aucun bien de votre CRM n'a matché avec les DPE chargés.")
                 
@@ -181,5 +183,9 @@ with tab3:
             st.subheader(f"🔥 Opportunités Pures : DPE récents HORS portefeuille ({len(df_non_m)} trouvés)")
             st.caption("Ces particuliers ont fait un DPE récemment, mais ne sont ni dans vos évaluations ni dans vos mandats. Prospectez-les !")
             if not df_non_m.empty: 
-                cols_opportunites = ["_addr_full", "etiquette_dpe", "etiquette_ges", "surface_habitable_logement", "_date", "_age", "type_batiment"]
-                st.dataframe(df_non_m[cols_opportunites].head(500), use_container_width=True)
+                # SÉCURISATION DU KEYERROR ICI 👇
+                cols_cibles = ["_addr_full", "etiquette_dpe", "etiquette_ges", "surface_habitable_logement", "surface", "_date", "_age", "type_batiment"]
+                # On ne garde que les colonnes qui existent VRAIMENT dans le dataframe
+                cols_existants = [c for c in cols_cibles if c in df_non_m.columns]
+                
+                st.dataframe(df_non_m[cols_existants].head(500), use_container_width=True)
