@@ -5,6 +5,7 @@ Navigation 3 profils : Agent / Directeur / Direction
 
 import streamlit as st
 
+# Configuration de la navigation par profils et par pages
 pg = st.navigation(
     {
         "": [
@@ -21,12 +22,14 @@ pg = st.navigation(
         "🌐 Direction réseau": [
             st.Page("pages/5_Vue_Reseau.py",     title="Vue réseau",         icon="🌐"),
             st.Page("pages/6_Pilotage.py",       title="Pilotage",           icon="📈"),
+            st.Page("pages/7_Analyse_Ventes.py", title="Analyse DVF",        icon="🤝"),
         ],
     },
     position="sidebar",
     expanded=True,
 )
 
+# Configuration globale de l'application
 st.set_page_config(
     page_title="Radar Mandats",
     page_icon="📡",
@@ -34,4 +37,5 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Lancement de l'application
 pg.run()
