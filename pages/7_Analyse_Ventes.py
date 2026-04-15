@@ -22,7 +22,6 @@ df_mand = st.session_state.get("df_mandats", pd.DataFrame()).copy()
 cps_eval = df_eval["code_postal"].dropna().astype(str).str.zfill(5).str[:5]
 cps_mand = df_mand["code_postal"].dropna().astype(str).str.zfill(5).str[:5] if not df_mand.empty else pd.Series()
 tous_cps = set(cps_eval) | set(cps_mand)
-# On extrait les 2 premiers chiffres (départements)
 deps_crm = set([cp[:2] for cp in tous_cps if len(cp) >= 2])
 
 # ── 2. EN-TÊTE ────────────────────────────────────────────────────
@@ -36,26 +35,19 @@ st.markdown("<hr class='sep'>", unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown("### ⚙️ Paramètres DVF")
-    seuil_match = st.slider("Score de correspondance adresse", 85, 100, 90, step=5)
+    seuil_match = st.slider("Score de correspondance adresse", 60, 100, 90, step=5)
 
 # ── 3. LECTURE ANTI-CRASH (PAR BLOCS) ─────────────────────────────
 def load_dvf_chunked(uploaded_file, deps_filtre):
-    """
-    Lit un fichier massif par blocs de 50 000 lignes.
-    Ne conserve que les lignes correspondant aux départements de l'agence.
-    Évite l'erreur 'Oh no' (Out of Memory) sur Streamlit.
-    """
-    # 1. Détection robuste de l'encodage et du séparateur
     first_line_bytes = uploaded_file.readline()
     uploaded_file.seek(0)
     try:
         first_line = first_line_bytes.decode('utf-8')
     except UnicodeDecodeError:
-        first_line = first_line_bytes.decode('latin-1') # Les fichiers gouv sont souvent en latin-1
+        first_line = first_line_bytes.decode('latin-1')
 
     sep = '|' if '|' in first_line else ','
     
-    # 2. Lire les en-têtes
     headers = pd.read_csv(uploaded_file, sep=sep, nrows=0, encoding='utf-8', on_bad_lines='skip').columns
     uploaded_file.seek(0)
     
@@ -67,7 +59,6 @@ def load_dvf_chunked(uploaded_file, deps_filtre):
     cols_to_use = [c for c in headers if c in cibles]
     
     chunks = []
-    # 3. Lecture par morceaux (chunksize) pour économiser la RAM
     reader = pd.read_csv(
         uploaded_file, sep=sep, usecols=cols_to_use, dtype=str, 
         chunksize=50000, low_memory=False, encoding='utf-8', on_bad_lines='skip'
@@ -76,16 +67,12 @@ def load_dvf_chunked(uploaded_file, deps_filtre):
     for chunk in reader:
         cp_col = "Code postal" if "Code postal" in chunk.columns else ("code_postal" if "code_postal" in chunk.columns else None)
         if cp_col and deps_filtre:
-            # Récupérer les 2 premiers chiffres du code postal
             dep_series = chunk[cp_col].fillna("").astype(str).str.replace(".0", "", regex=False).str.zfill(5).str[:2]
-            # Ne garder que les lignes du département de l'agence
             chunk = chunk[dep_series.isin(deps_filtre)]
         chunks.append(chunk)
 
-    if not chunks:
-        return pd.DataFrame(columns=cols_to_use)
+    if not chunks: return pd.DataFrame(columns=cols_to_use)
     return pd.concat(chunks, ignore_index=True)
-
 
 # ── 4. CHARGEMENT DVF ─────────────────────────────────────────────
 st.markdown('<div class="sec">1. Charger la base des ventes (DVF)</div>', unsafe_allow_html=True)
@@ -98,15 +85,13 @@ if dvf_files:
     if st.button("🚀 Lancer le croisement DVF", type="primary"):
         with st.spinner(f"Filtrage intelligent (Conservation des départements : {', '.join(deps_crm)})..."):
             dfs = []
-            for f in dvf_files:
-                dfs.append(load_dvf_chunked(f, deps_crm))
+            for f in dvf_files: dfs.append(load_dvf_chunked(f, deps_crm))
             df_dvf = pd.concat(dfs, ignore_index=True)
 
             if df_dvf.empty:
                 st.error("Aucune vente trouvée dans les départements de votre CRM. Vérifiez votre fichier.")
                 st.stop()
 
-            # Standardisation
             def get_c(possible_names):
                 for c in possible_names:
                     if c in df_dvf.columns: return df_dvf[c].fillna("")
@@ -127,11 +112,9 @@ if dvf_files:
             df_dvf["_prix"] = pd.to_numeric(get_c(["valeur_fonciere", "Valeur fonciere"]).str.replace(",", ".", regex=False), errors="coerce")
             
             df_dvf = df_dvf.sort_values("_date", ascending=False)
-            
             df_dvf["_cp_idx"] = cp.str[:5]
             cp_index = {}
-            for r in df_dvf.to_dict("records"):
-                cp_index.setdefault(r["_cp_idx"], []).append(r)
+            for r in df_dvf.to_dict("records"): cp_index.setdefault(r["_cp_idx"], []).append(r)
 
         with st.spinner("Comparaison des adresses..."):
             cols_communes = ["nom_principal", "adresse_bien", "code_postal"]
@@ -152,26 +135,28 @@ if dvf_files:
                 best_sc, best_vente = 0, None
                 for vente in cp_index.get(cp_crm, []):
                     sc, _, _ = score_match(addr_crm, vente)
-                    if sc > best_sc: 
-                        best_sc, best_vente = sc, vente
+                    if sc > best_sc: best_sc, best_vente = sc, vente
                         
                 if best_sc >= seuil_match and best_vente:
                     matchs_dvf.append({
-                        "id_crm": row["id_crm"],
-                        "source_crm": row["source_crm"],
-                        "dvf_date": best_vente["_date"],
-                        "dvf_prix": best_vente["_prix"]
+                        "id_crm": row["id_crm"], "source_crm": row["source_crm"],
+                        "dvf_date": best_vente["_date"], "dvf_prix": best_vente["_prix"]
                     })
                     
             prog.empty()
             st.session_state["match_dvf_df"] = pd.DataFrame(matchs_dvf)
+            st.session_state["dvf_has_run"] = True # Marqueur d'exécution
             st.success("Croisement terminé ! Les résultats sont affichés ci-dessous.")
 
-# ── 5. AFFICHAGE DES RÉSULTATS ────────────────────────────────────
-df_match_dvf = st.session_state.get("match_dvf_df", pd.DataFrame())
-df_match_dpe = st.session_state.get("match_crm_df", pd.DataFrame()) 
+# ── 5. AFFICHAGE DES RÉSULTATS (Toujours visible si exécuté) ──────
+match_dvf_state = st.session_state.get("match_dvf_df")
+match_dpe_state = st.session_state.get("match_crm_df")
+dvf_run = st.session_state.get("dvf_has_run", False)
 
-if not df_match_dvf.empty or not df_match_dpe.empty:
+df_match_dvf = match_dvf_state if match_dvf_state is not None else pd.DataFrame()
+df_match_dpe = match_dpe_state if match_dpe_state is not None else pd.DataFrame()
+
+if dvf_run or match_dpe_state is not None:
     st.markdown("<br/>", unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["📝 Évaluations (Passées en DPE ou DVF)", "🤝 Mandats (Vendus DVF)"])
 
@@ -199,7 +184,7 @@ if not df_match_dvf.empty or not df_match_dpe.empty:
         final_eval = res_eval[mask].sort_values("date_estimation", ascending=False).copy()
         
         if final_eval.empty:
-            st.info("Aucune de vos évaluations n'a été retrouvée.")
+            st.warning("⚠️ **Aucune correspondance trouvée !** Les adresses DVF des notaires sont souvent très mal orthographiées. **Baissez le score de correspondance (à gauche) vers 70 ou 80**, et relancez le croisement.")
         else:
             final_eval["date_estimation"] = final_eval["date_estimation"].apply(formater_date)
             final_eval["date_dernier_suivi"] = final_eval["date_dernier_suivi"].apply(formater_date)
@@ -217,7 +202,9 @@ if not df_match_dvf.empty or not df_match_dpe.empty:
             st.dataframe(final_eval, hide_index=True, use_container_width=True)
 
     with tab2:
-        if df_match_dvf.empty:
+        if df_match_dvf.empty and dvf_run:
+            st.warning("⚠️ **Aucun mandat trouvé.** Baissez le score de correspondance (vers 70 ou 80) dans le menu de gauche et relancez !")
+        elif df_match_dvf.empty and not dvf_run:
             st.info("Lancez le croisement DVF pour voir vos mandats revendus.")
         else:
             res_mand = df_mand[["id_mandat", "nom_principal", "adresse_bien", "date_mandat", "date_dernier_suivi"]].copy()
@@ -227,7 +214,7 @@ if not df_match_dvf.empty or not df_match_dpe.empty:
             final_mand = res_mand[res_mand["dvf_date"].notna()].sort_values("date_mandat", ascending=False).copy()
             
             if final_mand.empty:
-                st.info("Aucun de vos mandats ne correspond à une transaction DVF.")
+                st.warning("⚠️ **Aucun mandat trouvé.** Baissez le score de correspondance (vers 70 ou 80) dans le menu de gauche et relancez !")
             else:
                 final_mand["date_mandat"] = final_mand["date_mandat"].apply(formater_date)
                 final_mand["date_dernier_suivi"] = final_mand["date_dernier_suivi"].apply(formater_date)
