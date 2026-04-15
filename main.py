@@ -5,7 +5,15 @@ Navigation 3 profils : Agent / Directeur / Direction
 
 import streamlit as st
 
-# Configuration de la navigation par profils et par pages
+# 1. Configuration globale (DOIT TOUJOURS ÊTRE LA PREMIÈRE COMMANDE STREAMLIT)
+st.set_page_config(
+    page_title="Radar Mandats",
+    page_icon="📡",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# 2. Configuration de la navigation par profils et par pages
 pg = st.navigation(
     {
         "": [
@@ -29,13 +37,5 @@ pg = st.navigation(
     expanded=True,
 )
 
-# Configuration globale de l'application
-st.set_page_config(
-    page_title="Radar Mandats",
-    page_icon="📡",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# Lancement de l'application
+# 3. Lancement de l'application
 pg.run()
